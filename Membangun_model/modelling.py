@@ -47,7 +47,14 @@ warnings.filterwarnings("ignore")
 # ============================================================
 # Configuration
 # ============================================================
+# Try connecting to MLflow tracking server, fallback to local tracking if unavailable
 MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
+try:
+    import requests
+    requests.get(MLFLOW_TRACKING_URI, timeout=2)
+except Exception:
+    MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
+
 EXPERIMENT_NAME = "telco-churn-baseline"
 DATA_DIR = "data/processed"
 ARTIFACTS_DIR = "artifacts"
@@ -290,7 +297,7 @@ def main(data_dir: str = DATA_DIR):
 
     # Find best model
     best = max(results, key=lambda x: x["metrics"]["f1_score"])
-    print(f"\n✅ Best model: {best['model_name']} (F1: {best['metrics']['f1_score']:.4f})")
+    print(f"\n[SUCCESS] Best model: {best['model_name']} (F1: {best['metrics']['f1_score']:.4f})")
     print(f"   MLflow Run ID: {best['run_id']}")
 
     return results

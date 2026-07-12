@@ -215,7 +215,7 @@ async def lifespan(app: FastAPI):
     state.metrics_collector = MetricsCollector()
     logger.info("Prometheus metrics collector initialized")
 
-    logger.info("✅ Inference server ready!")
+    logger.info("[SUCCESS] Inference server ready!")
 
     yield
 

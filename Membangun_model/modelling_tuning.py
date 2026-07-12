@@ -272,7 +272,7 @@ def run_tuning(data_dir: str = DATA_DIR):
                 mlflow.log_metric("rank", row["rank_test_score"])
 
         run_id = mlflow.active_run().info.run_id
-        print(f"\n✅ Tuning completed!")
+        print(f"\n[SUCCESS] Tuning completed!")
         print(f"   Best F1: {metrics['f1_score']:.4f}")
         print(f"   Best AUC-ROC: {metrics['auc_roc']:.4f}")
         print(f"   MLflow Run ID: {run_id}")
