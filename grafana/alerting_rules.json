@@ -1,0 +1,326 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "ML Inference Alerts",
+      "folder": "MLOps Alerts",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "alert-high-latency",
+          "title": "High Inference Latency",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "histogram_quantile(0.95, rate(ml_inference_latency_seconds_bucket[5m]))",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "conditions": [
+                  {
+                    "evaluator": { "params": [], "type": "gt" },
+                    "operator": { "type": "and" },
+                    "query": { "params": ["B"] },
+                    "reducer": { "params": [], "type": "last" }
+                  }
+                ],
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "A",
+                "reducer": "last",
+                "refId": "B",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "conditions": [
+                  {
+                    "evaluator": { "params": [2], "type": "gt" },
+                    "operator": { "type": "and" },
+                    "query": { "params": ["C"] },
+                    "reducer": { "params": [], "type": "last" }
+                  }
+                ],
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "B",
+                "refId": "C",
+                "type": "threshold"
+              }
+            }
+          ],
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "for": "5m",
+          "annotations": {
+            "description": "P95 inference latency has exceeded 2 seconds for the last 5 minutes. Current value: {{ $value }}s",
+            "summary": "High inference latency detected on Telco Churn model"
+          },
+          "labels": {
+            "severity": "warning",
+            "team": "mlops",
+            "project": "SMSML_Eko_Muhammad_Rizki"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "alert-high-error-rate",
+          "title": "High HTTP Error Rate",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "sum(rate(ml_http_errors_total[5m])) / sum(rate(ml_request_total[5m]))",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "A",
+                "reducer": "last",
+                "refId": "B",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "conditions": [
+                  {
+                    "evaluator": { "params": [0.1], "type": "gt" },
+                    "operator": { "type": "and" },
+                    "query": { "params": ["C"] },
+                    "reducer": { "params": [], "type": "last" }
+                  }
+                ],
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "B",
+                "refId": "C",
+                "type": "threshold"
+              }
+            }
+          ],
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "for": "5m",
+          "annotations": {
+            "description": "HTTP error rate has exceeded 10% for the last 5 minutes. Current value: {{ $value }}",
+            "summary": "High error rate on ML inference endpoint"
+          },
+          "labels": {
+            "severity": "critical",
+            "team": "mlops",
+            "project": "SMSML_Eko_Muhammad_Rizki"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "alert-high-cpu",
+          "title": "High CPU Usage",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "system_cpu_usage_percent",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "A",
+                "reducer": "last",
+                "refId": "B",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "",
+              "relativeTimeRange": { "from": 300, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "conditions": [
+                  {
+                    "evaluator": { "params": [90], "type": "gt" },
+                    "operator": { "type": "and" },
+                    "query": { "params": ["C"] },
+                    "reducer": { "params": [], "type": "last" }
+                  }
+                ],
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "B",
+                "refId": "C",
+                "type": "threshold"
+              }
+            }
+          ],
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "for": "5m",
+          "annotations": {
+            "description": "CPU usage has exceeded 90% for the last 5 minutes. Current value: {{ $value }}%",
+            "summary": "High CPU usage on inference server"
+          },
+          "labels": {
+            "severity": "warning",
+            "team": "mlops",
+            "project": "SMSML_Eko_Muhammad_Rizki"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "alert-data-drift",
+          "title": "Data Drift Detected",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": { "from": 600, "to": 0 },
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "ml_data_drift_score",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "",
+              "relativeTimeRange": { "from": 600, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "A",
+                "reducer": "mean",
+                "refId": "B",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "",
+              "relativeTimeRange": { "from": 600, "to": 0 },
+              "datasourceUid": "__expr__",
+              "model": {
+                "conditions": [
+                  {
+                    "evaluator": { "params": [0.3], "type": "gt" },
+                    "operator": { "type": "and" },
+                    "query": { "params": ["C"] },
+                    "reducer": { "params": [], "type": "last" }
+                  }
+                ],
+                "datasource": { "type": "__expr__", "uid": "__expr__" },
+                "expression": "B",
+                "refId": "C",
+                "type": "threshold"
+              }
+            }
+          ],
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "for": "10m",
+          "annotations": {
+            "description": "Data drift score has exceeded 0.3 for the last 10 minutes. Current value: {{ $value }}. Consider retraining the model.",
+            "summary": "Significant data drift detected in inference inputs"
+          },
+          "labels": {
+            "severity": "critical",
+            "team": "mlops",
+            "project": "SMSML_Eko_Muhammad_Rizki"
+          },
+          "isPaused": false
+        }
+      ]
+    }
+  ],
+  "contactPoints": [
+    {
+      "orgId": 1,
+      "name": "mlops-notifications",
+      "receivers": [
+        {
+          "uid": "webhook-notifications",
+          "type": "webhook",
+          "settings": {
+            "url": "https://hooks.slack.com/services/YOUR_SLACK_WEBHOOK_URL",
+            "httpMethod": "POST",
+            "maxAlerts": 10
+          },
+          "disableResolveMessage": false
+        },
+        {
+          "uid": "email-notifications",
+          "type": "email",
+          "settings": {
+            "addresses": "eko.muhammad.rizki@example.com",
+            "singleEmail": true
+          },
+          "disableResolveMessage": false
+        }
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "orgId": 1,
+      "receiver": "mlops-notifications",
+      "group_by": ["alertname", "severity"],
+      "group_wait": "30s",
+      "group_interval": "5m",
+      "repeat_interval": "4h",
+      "routes": [
+        {
+          "receiver": "mlops-notifications",
+          "matchers": ["severity=critical"],
+          "group_wait": "10s",
+          "repeat_interval": "1h"
+        }
+      ]
+    }
+  ]
+}

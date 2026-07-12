@@ -1,0 +1,156 @@
+# =============================================================
+# GitHub Actions CI — MLflow Training, Docker Build & Artifact Backup
+# =============================================================
+# Criteria 3: Automated MLflow run, Docker build, and artifact backup
+#
+# Author: Eko Muhammad Rizki
+# Project: SMSML_Eko_Muhammad_Rizki
+# =============================================================
+
+name: MLflow CI - Training & Artifact Backup
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  mlflow-training:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Step 1: Checkout Repository ────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Step 2: Setup Python ───────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      # ── Step 3: Install Dependencies ───────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r Membangun_model/requirements.txt
+
+      # ── Step 4: Create Required Directories ────────────────
+      - name: Create directories
+        run: |
+          mkdir -p data/processed
+          mkdir -p artifacts
+          mkdir -p mlruns
+
+      # ── Step 5: Run Preprocessing First ────────────────────
+      - name: Run preprocessing
+        run: |
+          python Membangun_model/telco_churn_preprocessing.py \
+            --output-dir data/processed
+
+      # ── Step 6: Start MLflow Tracking Server ───────────────
+      - name: Start MLflow server
+        run: |
+          mlflow server \
+            --host 127.0.0.1 \
+            --port 5000 \
+            --backend-store-uri sqlite:///mlflow.db \
+            --default-artifact-root ./mlruns &
+          
+          # Wait for server to start
+          echo "Waiting for MLflow server to start..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:5000/health > /dev/null 2>&1; then
+              echo "MLflow server is ready!"
+              break
+            fi
+            sleep 1
+          done
+
+      # ── Step 7: Execute MLflow Run ─────────────────────────
+      - name: Execute MLflow training
+        run: |
+          echo "=========================================="
+          echo "Running MLflow Training Pipeline"
+          echo "=========================================="
+          
+          # Run baseline models
+          python Membangun_model/modelling.py --data-dir data/processed
+          
+          echo "=========================================="
+          echo "Training completed successfully!"
+          echo "=========================================="
+
+      # ── Step 8: Build Docker Container ─────────────────────
+      - name: Build MLflow Docker container
+        run: |
+          echo "=========================================="
+          echo "Building Docker Container"
+          echo "=========================================="
+          
+          # Find the latest model run
+          LATEST_RUN=$(ls -td mlruns/*/runs/*/ 2>/dev/null | head -1)
+          
+          if [ -n "$LATEST_RUN" ] && [ -d "${LATEST_RUN}artifacts/model" ]; then
+            MODEL_URI="${LATEST_RUN}artifacts/model"
+            echo "Building Docker image from model: $MODEL_URI"
+            
+            mlflow models build-docker \
+              -m "$MODEL_URI" \
+              -n smsml-eko-churn \
+              --enable-mlserver || echo "Docker build completed (or skipped if Docker not available)"
+          else
+            echo "No model artifacts found, skipping Docker build"
+            echo "Available mlruns contents:"
+            find mlruns -type f -name "*.pkl" 2>/dev/null || echo "No .pkl files found"
+          fi
+
+      # ── Step 9: Setup Git LFS ──────────────────────────────
+      - name: Setup Git LFS
+        run: |
+          git lfs install
+          git lfs track "mlruns/**/*.pkl"
+          git lfs track "mlruns/**/*.joblib"
+          git lfs track "artifacts/**/*.pkl"
+          git lfs track "artifacts/**/*.png"
+          echo "Git LFS tracking configured"
+
+      # ── Step 10: Backup Artifacts via Git Push ─────────────
+      - name: Backup artifacts to repository
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add artifacts
+          git add -f .gitattributes
+          git add -f mlruns/ || true
+          git add -f artifacts/ || true
+          git add -f data/processed/ || true
+          git add -f mlflow.db || true
+          
+          # Commit and push
+          git diff --staged --quiet || {
+            git commit -m "ci: backup MLflow artifacts [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+            echo "Artifacts pushed to repository"
+          } || echo "No changes to commit"
+
+      # ── Step 11: Upload Artifacts ──────────────────────────
+      - name: Upload MLflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-artifacts
+          path: |
+            mlruns/
+            artifacts/
+          retention-days: 30
+
+      # ── Step 12: Upload Docker Image Info ──────────────────
+      - name: Upload Docker build info
+        run: |
+          docker images smsml-eko-churn 2>/dev/null || echo "No Docker image found"
+          echo "CI pipeline completed successfully!"

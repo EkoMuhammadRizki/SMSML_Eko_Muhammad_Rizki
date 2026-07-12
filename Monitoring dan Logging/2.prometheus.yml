@@ -1,0 +1,89 @@
+# Prometheus Configuration
+# =======================
+# Telco Customer Churn — ML Inference Monitoring
+# Author: Eko Muhammad Rizki
+# Project: SMSML_Eko_Muhammad_Rizki
+
+global:
+  scrape_interval: 15s          # Scrape targets every 15 seconds
+  evaluation_interval: 15s       # Evaluate rules every 15 seconds
+  scrape_timeout: 10s            # Timeout for scraping
+
+  external_labels:
+    project: "SMSML_Eko_Muhammad_Rizki"
+    environment: "local"
+
+# Alertmanager configuration (optional, for alert routing)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - "localhost:9093"   # Uncomment if using Alertmanager
+
+# Rule files (for recording rules and alerts)
+rule_files:
+  # - "alert_rules.yml"
+
+# ============================================================
+# Scrape Configurations
+# ============================================================
+scrape_configs:
+
+  # ── 1. Prometheus Self-Monitoring ──────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          instance: "prometheus-server"
+
+  # ── 2. ML Inference Server (FastAPI + Custom Metrics) ──────
+  - job_name: "ml-inference-server"
+    scrape_interval: 10s
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["localhost:8000"]
+        labels:
+          application: "telco-churn-inference"
+          model: "random-forest-tuned"
+          version: "1.0.0"
+
+    # Relabeling for cleaner metric labels
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: "ml_.*|system_.*"
+        action: keep
+
+  # ── 3. Node Exporter (System Metrics) ─────────────────────
+  # Install node_exporter separately for detailed OS metrics
+  - job_name: "node-exporter"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["localhost:9100"]
+        labels:
+          instance: "local-machine"
+
+  # ── 4. MLflow Tracking Server (optional) ──────────────────
+  - job_name: "mlflow-server"
+    scrape_interval: 30s
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["localhost:5000"]
+        labels:
+          service: "mlflow-tracking"
+
+# ============================================================
+# Metrics Being Monitored (12 Custom Metrics)
+# ============================================================
+#
+#  1. ml_inference_latency_seconds     — Inference latency histogram
+#  2. ml_request_total                 — Total prediction requests by status
+#  3. ml_http_errors_total             — HTTP 4xx/5xx error count
+#  4. ml_prediction_churn_total        — Churn prediction count
+#  5. ml_prediction_no_churn_total     — No-churn prediction count
+#  6. ml_prediction_confidence         — Model confidence histogram
+#  7. ml_data_drift_score              — Feature drift indicator (0-1)
+#  8. ml_active_connections            — Current active connections
+#  9. system_cpu_usage_percent         — CPU utilization
+# 10. system_memory_usage_percent      — Memory utilization
+# 11. system_disk_usage_percent        — Disk utilization
+# 12. ml_model_reload_total            — Model hot-reload count

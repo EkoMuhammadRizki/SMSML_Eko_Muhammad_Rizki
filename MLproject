@@ -1,0 +1,20 @@
+name: SMSML_Eko_Muhammad_Rizki
+
+conda_env: conda.yaml
+
+entry_points:
+
+  preprocess:
+    command: "python Membangun_model/telco_churn_preprocessing.py"
+
+  train:
+    parameters:
+      n_estimators: {type: int, default: 100}
+      max_depth: {type: int, default: 10}
+    command: "python Membangun_model/modelling.py --n_estimators {n_estimators} --max_depth {max_depth}"
+
+  tune:
+    command: "python Membangun_model/modelling_tuning.py"
+
+  main:
+    command: "python Membangun_model/modelling.py"
