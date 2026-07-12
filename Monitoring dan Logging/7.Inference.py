@@ -174,24 +174,39 @@ async def lifespan(app: FastAPI):
 
     # Load model
     try:
-        # Try loading from MLflow model registry first
+        # 1. Try loading from local sqlite database first (dynamic best model check)
         try:
-            state.model = mlflow.sklearn.load_model(MLFLOW_MODEL_URI)
-            logger.info(f"Loaded model from MLflow registry: {MLFLOW_MODEL_URI}")
-        except Exception:
-            # Fallback: load from local artifacts
+            mlflow.set_tracking_uri("sqlite:///mlflow.db")
+            runs = mlflow.search_runs(experiment_names=["telco-churn-baseline"], order_by=["metrics.f1_score DESC"])
+            if not runs.empty:
+                best_run_id = runs.iloc[0]["run_id"]
+                state.model = mlflow.sklearn.load_model(f"runs:/{best_run_id}/model")
+                logger.info(f"Loaded best local model from baseline run: {best_run_id}")
+        except Exception as e:
+            logger.info(f"Local SQLite database check skipped/failed: {e}")
+
+        # 2. Fallback to standard MLflow registry URI
+        if state.model is None:
+            try:
+                state.model = mlflow.sklearn.load_model(MLFLOW_MODEL_URI)
+                logger.info(f"Loaded model from MLflow registry: {MLFLOW_MODEL_URI}")
+            except Exception:
+                pass
+
+        # 3. Fallback to static folders/glob
+        if state.model is None:
             model_path = os.path.join(MODEL_DIR, "model.pkl")
             if os.path.exists(model_path):
                 state.model = joblib.load(model_path)
                 logger.info(f"Loaded model from local path: {model_path}")
             else:
-                # Try any sklearn model in mlruns
                 import glob
-                pattern = "mlruns/**/model/model.pkl"
-                found = glob.glob(pattern, recursive=True)
+                # Find any MLmodel folder which represents a saved sklearn model
+                found = glob.glob("mlruns/**/MLmodel", recursive=True)
                 if found:
-                    state.model = joblib.load(found[0])
-                    logger.info(f"Loaded model from mlruns: {found[0]}")
+                    model_dir = os.path.dirname(found[0])
+                    state.model = mlflow.sklearn.load_model(model_dir)
+                    logger.info(f"Loaded model from custom path: {model_dir}")
                 else:
                     logger.warning("No model found! Server will start but predictions will fail.")
 
