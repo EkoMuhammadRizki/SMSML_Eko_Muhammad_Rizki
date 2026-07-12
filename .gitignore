@@ -39,5 +39,5 @@ Thumbs.db
 .env
 *.env
 
-
-
+# Workspaces/Sub-repos
+Workflow-CI/

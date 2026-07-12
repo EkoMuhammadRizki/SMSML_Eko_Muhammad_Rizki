@@ -47,14 +47,7 @@ warnings.filterwarnings("ignore")
 # ============================================================
 # Configuration
 # ============================================================
-# Try connecting to MLflow tracking server, fallback to local tracking if unavailable
-MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
-try:
-    import requests
-    requests.get(MLFLOW_TRACKING_URI, timeout=2)
-except Exception:
-    MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
-
+MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
 EXPERIMENT_NAME = "telco-churn-baseline"
 DATA_DIR = "preprocessing/namadataset_preprocessing"
 ARTIFACTS_DIR = "artifacts"
@@ -185,39 +178,34 @@ def train_and_log_model(
     y_test: np.ndarray,
 ) -> dict:
     """
-    Train a single model and log everything to MLflow.
+    Train a single model and log to MLflow using autolog.
 
-    Logs:
+    mlflow.autolog() handles:
     - All model parameters
-    - Metrics: accuracy, precision, recall, f1, auc_roc
-    - Model artifact via mlflow.sklearn.log_model
-    - Custom artifact 1: confusion_matrix.png
-    - Custom artifact 2: classification_report.json
+    - Training metrics
+    - Model artifact (MLmodel, conda.yaml, model.pkl, etc.)
+
+    Custom artifacts logged manually:
+    - confusion_matrix.png
+    - classification_report.json
     """
     model = model_config["model"]
-    params = model_config["params"]
 
     with mlflow.start_run(run_name=model_name):
         print(f"\n{'='*60}")
         print(f"Training: {model_name}")
         print(f"{'='*60}")
 
-        # Log parameters
-        for key, value in params.items():
-            mlflow.log_param(key, value)
-        mlflow.log_param("model_type", model_name)
-
-        # Train
+        # Train — autolog automatically logs params, metrics, and model
         start_time = datetime.now()
         model.fit(X_train, y_train)
         train_time = (datetime.now() - start_time).total_seconds()
-        mlflow.log_metric("training_time_seconds", train_time)
 
         # Predict
         y_pred = model.predict(X_test)
         y_pred_proba = model.predict_proba(X_test)[:, 1]
 
-        # Calculate metrics
+        # Calculate metrics for display
         metrics = {
             "accuracy": accuracy_score(y_test, y_pred),
             "precision": precision_score(y_test, y_pred),
@@ -226,12 +214,10 @@ def train_and_log_model(
             "auc_roc": roc_auc_score(y_test, y_pred_proba),
         }
 
-        # Log metrics
         for metric_name, metric_value in metrics.items():
-            mlflow.log_metric(metric_name, metric_value)
             print(f"  {metric_name}: {metric_value:.4f}")
 
-        # Log model artifact
+        # Log model artifact explicitly to ensure "model" folder is created
         mlflow.sklearn.log_model(model, artifact_path="model")
         print(f"  Model artifact logged successfully")
 
@@ -261,7 +247,7 @@ def train_and_log_model(
 # Main Execution
 # ============================================================
 def main(data_dir: str = DATA_DIR):
-    """Run baseline model training with MLflow tracking."""
+    """Run baseline model training with MLflow tracking and autolog."""
     print("=" * 60)
     print("TELCO CHURN — BASELINE MODELING WITH MLFLOW")
     print("=" * 60)
@@ -269,7 +255,10 @@ def main(data_dir: str = DATA_DIR):
     # Configure MLflow
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(EXPERIMENT_NAME)
+
+    # Enable MLflow autolog — automatically logs parameters, metrics, and model artifacts
     mlflow.autolog()
+    print(f"[INFO] MLflow autolog enabled")
     print(f"[INFO] MLflow Tracking URI: {MLFLOW_TRACKING_URI}")
     print(f"[INFO] Experiment: {EXPERIMENT_NAME}")
 
