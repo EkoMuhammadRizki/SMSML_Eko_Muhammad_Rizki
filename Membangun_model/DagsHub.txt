@@ -1,0 +1,7 @@
+DagsHub MLflow Tracking - SMSML_Eko_Muhammad_Rizki
+===================================================
+Peserta: Eko Muhammad Rizki
+
+DagsHub Repository : https://dagshub.com/EkoMuhammadRizki/SMSML_Eko_Muhammad_Rizki
+MLflow Tracking URI : https://dagshub.com/EkoMuhammadRizki/SMSML_Eko_Muhammad_Rizki.mlflow
+MLflow Experiment UI : https://dagshub.com/EkoMuhammadRizki/SMSML_Eko_Muhammad_Rizki.mlflow/#/experiments
