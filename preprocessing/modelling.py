@@ -56,7 +56,7 @@ except Exception:
     MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
 
 EXPERIMENT_NAME = "telco-churn-baseline"
-DATA_DIR = "data/processed"
+DATA_DIR = "preprocessing/namadataset_preprocessing"
 ARTIFACTS_DIR = "artifacts"
 
 
@@ -269,6 +269,7 @@ def main(data_dir: str = DATA_DIR):
     # Configure MLflow
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(EXPERIMENT_NAME)
+    mlflow.autolog()
     print(f"[INFO] MLflow Tracking URI: {MLFLOW_TRACKING_URI}")
     print(f"[INFO] Experiment: {EXPERIMENT_NAME}")
 
