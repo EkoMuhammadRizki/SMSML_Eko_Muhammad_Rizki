@@ -19,9 +19,8 @@ build/
 mlruns/
 mlflow.db
 
-# Data
-data/processed/
-*.csv
+# Data processed
+preprocessing/namadataset_preprocessing/
 
 # IDE
 .idea/
@@ -40,9 +39,5 @@ Thumbs.db
 .env
 *.env
 
-# Local monitoring binaries and data
-grafana_bin/
-prometheus_bin/
-grafana_temp/
-data/
+
 
