@@ -39,3 +39,10 @@ Thumbs.db
 # Virtual environment
 .env
 *.env
+
+# Local monitoring binaries and data
+grafana_bin/
+prometheus_bin/
+grafana_temp/
+data/
+
