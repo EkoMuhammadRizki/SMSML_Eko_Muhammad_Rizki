@@ -33,12 +33,17 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 
-# Import Prometheus metrics from exporter
+# Import Prometheus metrics from exporter (using importlib since file starts with a number)
+import importlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from prometheus_exporter import (
-    MetricsCollector,
-    setup_metrics_endpoint,
-)
+try:
+    prometheus_exporter = importlib.import_module("3.prometheus_exporter")
+except ModuleNotFoundError:
+    # Try importing directly if the user renamed it
+    import prometheus_exporter
+
+MetricsCollector = prometheus_exporter.MetricsCollector
+setup_metrics_endpoint = prometheus_exporter.setup_metrics_endpoint
 
 # ============================================================
 # Configuration
