@@ -4,12 +4,16 @@ Telco Customer Churn - Baseline Modeling with MLflow Tracking
 Trains multiple baseline models (Logistic Regression, Random Forest,
 Gradient Boosting) and logs everything to MLflow.
 
-Artifacts logged:
-- Model parameters
-- Metrics (accuracy, precision, recall, F1, AUC-ROC)
-- Model artifact (sklearn model)
-- confusion_matrix.png (custom artifact 1)
-- classification_report.json (custom artifact 2)
+Artifacts logged via autolog (log_models=True):
+- Model parameters (automatic)
+- Training metrics (automatic)
+- Model artifact folder: MLmodel, conda.yaml, model.pkl,
+  python_env.yaml, requirements.txt, estimator.html
+
+Custom artifacts logged manually:
+- confusion_matrix.png
+- classification_report.json
+- training_history.png (comparison across models)
 
 Author: Eko Muhammad Rizki
 Project: SMSML_Eko_Muhammad_Rizki
@@ -38,6 +42,7 @@ from sklearn.metrics import (
     roc_auc_score,
     confusion_matrix,
     classification_report,
+    roc_curve,
 )
 import mlflow
 import mlflow.sklearn
@@ -110,10 +115,80 @@ def save_classification_report(y_true, y_pred, model_name: str, save_dir: str) -
     return path
 
 
+def save_training_history(results: list, save_dir: str) -> str:
+    """
+    Generate and save training_history.png — a grouped bar chart
+    comparing key metrics across all trained models.
+    """
+    model_names = [r["model_name"] for r in results]
+    metrics_to_plot = ["accuracy", "precision", "recall", "f1_score", "auc_roc"]
+    x = np.arange(len(model_names))
+    width = 0.15
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+    colors = ["#3498db", "#2ecc71", "#e67e22", "#e74c3c", "#9b59b6"]
+
+    for i, metric in enumerate(metrics_to_plot):
+        values = [r["metrics"][metric] for r in results]
+        bars = ax.bar(x + i * width, values, width, label=metric.replace("_", " ").title(),
+                      color=colors[i], edgecolor="white", linewidth=0.5)
+        # Add value labels on bars
+        for bar, val in zip(bars, values):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.005,
+                    f"{val:.3f}", ha="center", va="bottom", fontsize=8, fontweight="bold")
+
+    ax.set_xlabel("Model", fontsize=13, fontweight="bold")
+    ax.set_ylabel("Score", fontsize=13, fontweight="bold")
+    ax.set_title("Training History — Model Comparison", fontsize=16, fontweight="bold")
+    ax.set_xticks(x + width * 2)
+    ax.set_xticklabels(model_names, fontsize=11)
+    ax.legend(loc="lower right", fontsize=10, framealpha=0.9)
+    ax.set_ylim(0, 1.12)
+    ax.grid(axis="y", alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.tight_layout()
+
+    os.makedirs(save_dir, exist_ok=True)
+    path = os.path.join(save_dir, "training_history.png")
+    plt.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"[INFO] Saved training history: {path}")
+    return path
+
+
+def save_roc_curves(results_with_proba: list, save_dir: str) -> str:
+    """Generate and save ROC curves for all models."""
+    plt.figure(figsize=(10, 8))
+    colors = ["#3498db", "#2ecc71", "#e74c3c"]
+
+    for (model_name, y_true, y_proba), color in zip(results_with_proba, colors):
+        fpr, tpr, _ = roc_curve(y_true, y_proba)
+        auc = roc_auc_score(y_true, y_proba)
+        plt.plot(fpr, tpr, color=color, lw=2,
+                 label=f"{model_name} (AUC = {auc:.4f})")
+
+    plt.plot([0, 1], [0, 1], "k--", lw=1.5, alpha=0.5, label="Random Classifier")
+    plt.xlabel("False Positive Rate", fontsize=13, fontweight="bold")
+    plt.ylabel("True Positive Rate", fontsize=13, fontweight="bold")
+    plt.title("ROC Curves — All Models", fontsize=16, fontweight="bold")
+    plt.legend(loc="lower right", fontsize=11, framealpha=0.9)
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+
+    os.makedirs(save_dir, exist_ok=True)
+    path = os.path.join(save_dir, "roc_curves.png")
+    plt.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"[INFO] Saved ROC curves: {path}")
+    return path
+
+
 # ============================================================
 # Model Definitions
 # ============================================================
-def get_baseline_models() -> dict:
+def get_baseline_models(n_estimators: int = 100, max_depth: int = 10) -> dict:
     """Return dictionary of baseline models with their parameters."""
     return {
         "LogisticRegression": {
@@ -132,16 +207,16 @@ def get_baseline_models() -> dict:
         },
         "RandomForest": {
             "model": RandomForestClassifier(
-                n_estimators=100,
-                max_depth=10,
+                n_estimators=n_estimators,
+                max_depth=max_depth,
                 min_samples_split=5,
                 min_samples_leaf=2,
                 random_state=42,
                 n_jobs=-1,
             ),
             "params": {
-                "n_estimators": 100,
-                "max_depth": 10,
+                "n_estimators": n_estimators,
+                "max_depth": max_depth,
                 "min_samples_split": 5,
                 "min_samples_leaf": 2,
                 "random_state": 42,
@@ -149,14 +224,14 @@ def get_baseline_models() -> dict:
         },
         "GradientBoosting": {
             "model": GradientBoostingClassifier(
-                n_estimators=100,
+                n_estimators=n_estimators,
                 max_depth=5,
                 learning_rate=0.1,
                 subsample=0.8,
                 random_state=42,
             ),
             "params": {
-                "n_estimators": 100,
+                "n_estimators": n_estimators,
                 "max_depth": 5,
                 "learning_rate": 0.1,
                 "subsample": 0.8,
@@ -178,12 +253,13 @@ def train_and_log_model(
     y_test: np.ndarray,
 ) -> dict:
     """
-    Train a single model and log to MLflow using autolog.
+    Train a single model and log to MLflow.
 
-    mlflow.autolog() handles:
+    mlflow.autolog(log_models=True) handles:
     - All model parameters
     - Training metrics
-    - Model artifact (MLmodel, conda.yaml, model.pkl, etc.)
+    - Model artifact folder (MLmodel, conda.yaml, model.pkl,
+      python_env.yaml, requirements.txt, estimator.html)
 
     Custom artifacts logged manually:
     - confusion_matrix.png
@@ -205,21 +281,28 @@ def train_and_log_model(
         y_pred = model.predict(X_test)
         y_pred_proba = model.predict_proba(X_test)[:, 1]
 
-        # Calculate metrics for display
+        # Calculate and log additional metrics manually
         metrics = {
             "accuracy": accuracy_score(y_test, y_pred),
             "precision": precision_score(y_test, y_pred),
             "recall": recall_score(y_test, y_pred),
             "f1_score": f1_score(y_test, y_pred),
             "auc_roc": roc_auc_score(y_test, y_pred_proba),
+            "training_time_seconds": train_time,
         }
+
+        # Log metrics that autolog may not capture
+        mlflow.log_metric("precision", metrics["precision"])
+        mlflow.log_metric("recall", metrics["recall"])
+        mlflow.log_metric("auc_roc", metrics["auc_roc"])
+        mlflow.log_metric("training_time_seconds", train_time)
 
         for metric_name, metric_value in metrics.items():
             print(f"  {metric_name}: {metric_value:.4f}")
 
-        # Log model artifact explicitly to ensure "model" folder is created
-        mlflow.sklearn.log_model(model, artifact_path="model")
-        print(f"  Model artifact logged successfully")
+        # NOTE: model artifact is logged automatically by autolog(log_models=True)
+        # No need for manual mlflow.sklearn.log_model() call
+        print(f"  Model artifact logged automatically by autolog")
 
         # Custom Artifact 1: Confusion Matrix PNG
         artifact_dir = os.path.join(ARTIFACTS_DIR, model_name)
@@ -240,13 +323,15 @@ def train_and_log_model(
             "run_id": run_id,
             "metrics": metrics,
             "training_time": train_time,
+            "y_test": y_test,
+            "y_pred_proba": y_pred_proba,
         }
 
 
 # ============================================================
 # Main Execution
 # ============================================================
-def main(data_dir: str = DATA_DIR):
+def main(data_dir: str = DATA_DIR, n_estimators: int = 100, max_depth: int = 10):
     """Run baseline model training with MLflow tracking and autolog."""
     print("=" * 60)
     print("TELCO CHURN — BASELINE MODELING WITH MLFLOW")
@@ -256,9 +341,12 @@ def main(data_dir: str = DATA_DIR):
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(EXPERIMENT_NAME)
 
-    # Enable MLflow autolog — automatically logs parameters, metrics, and model artifacts
-    mlflow.autolog()
-    print(f"[INFO] MLflow autolog enabled")
+    # Enable MLflow autolog with log_models=True
+    # This ensures the full model/ folder is created:
+    #   MLmodel, conda.yaml, model.pkl, python_env.yaml,
+    #   requirements.txt, estimator.html
+    mlflow.sklearn.autolog(log_models=True)
+    print(f"[INFO] MLflow sklearn.autolog enabled (log_models=True)")
     print(f"[INFO] MLflow Tracking URI: {MLFLOW_TRACKING_URI}")
     print(f"[INFO] Experiment: {EXPERIMENT_NAME}")
 
@@ -266,14 +354,32 @@ def main(data_dir: str = DATA_DIR):
     X_train, X_test, y_train, y_test = load_processed_data(data_dir)
 
     # Train all baseline models
-    models = get_baseline_models()
+    models = get_baseline_models(n_estimators=n_estimators, max_depth=max_depth)
     results = []
+    roc_data = []
 
     for model_name, model_config in models.items():
         result = train_and_log_model(
             model_name, model_config, X_train, X_test, y_train, y_test
         )
         results.append(result)
+        roc_data.append((model_name, result["y_test"], result["y_pred_proba"]))
+
+    # Generate and log training_history.png as a summary artifact
+    history_path = save_training_history(results, ARTIFACTS_DIR)
+    roc_path = save_roc_curves(roc_data, ARTIFACTS_DIR)
+
+    # Log training_history and ROC curves in a separate summary run
+    with mlflow.start_run(run_name="Training_Summary"):
+        mlflow.log_artifact(history_path, artifact_path="summary")
+        mlflow.log_artifact(roc_path, artifact_path="summary")
+
+        # Log best model info as params
+        best = max(results, key=lambda x: x["metrics"]["f1_score"])
+        mlflow.log_param("best_model", best["model_name"])
+        mlflow.log_metric("best_f1_score", best["metrics"]["f1_score"])
+        mlflow.log_metric("best_auc_roc", best["metrics"]["auc_roc"])
+        print(f"\n[INFO] Training history and ROC curves logged as summary artifacts")
 
     # Summary
     print(f"\n{'='*60}")
@@ -309,4 +415,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    main(data_dir=args.data_dir)
+    main(data_dir=args.data_dir, n_estimators=args.n_estimators, max_depth=args.max_depth)
