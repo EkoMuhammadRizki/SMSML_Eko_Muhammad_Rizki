@@ -44,8 +44,7 @@ jobs:
       # ── Step 4: Create Data Directory ──────────────────────
       - name: Create data directories
         run: |
-          mkdir -p data
-          mkdir -p data/processed
+          mkdir -p preprocessing/namadataset_preprocessing
 
       # ── Step 5: Run Preprocessing Pipeline ─────────────────
       - name: Run preprocessing pipeline
@@ -53,8 +52,8 @@ jobs:
           echo "=========================================="
           echo "Running Telco Churn Preprocessing Pipeline"
           echo "=========================================="
-          python Membangun_model/telco_churn_preprocessing.py \
-            --output-dir data/processed
+          python preprocessing/automate_Eko_Muhammad_Rizki.py \
+            --output-dir preprocessing/namadataset_preprocessing
           echo "=========================================="
           echo "Pipeline completed successfully!"
           echo "=========================================="
@@ -63,23 +62,23 @@ jobs:
       - name: Verify preprocessing outputs
         run: |
           echo "Checking output files..."
-          ls -la data/processed/
+          ls -la preprocessing/namadataset_preprocessing/
           echo ""
           echo "--- X_train shape ---"
-          python -c "import pandas as pd; df=pd.read_csv('data/processed/X_train.csv'); print(f'Shape: {df.shape}')"
+          python -c "import pandas as pd; df=pd.read_csv('preprocessing/namadataset_preprocessing/X_train.csv'); print(f'Shape: {df.shape}')"
           echo ""
           echo "--- X_test shape ---"
-          python -c "import pandas as pd; df=pd.read_csv('data/processed/X_test.csv'); print(f'Shape: {df.shape}')"
+          python -c "import pandas as pd; df=pd.read_csv('preprocessing/namadataset_preprocessing/X_test.csv'); print(f'Shape: {df.shape}')"
           echo ""
           echo "--- Preprocessing Summary ---"
-          cat data/processed/preprocessing_summary.json
+          cat preprocessing/namadataset_preprocessing/preprocessing_summary.json
 
       # ── Step 7: Upload Processed Data as Artifact ──────────
       - name: Upload processed data
         uses: actions/upload-artifact@v4
         with:
           name: processed-data
-          path: data/processed/
+          path: preprocessing/namadataset_preprocessing/
           retention-days: 30
 
       # ── Step 8: Upload Feature Names ───────────────────────
@@ -87,5 +86,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: feature-names
-          path: data/processed/feature_names.json
+          path: preprocessing/namadataset_preprocessing/feature_names.json
           retention-days: 30

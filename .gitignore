@@ -20,7 +20,7 @@ mlruns/
 mlflow.db
 
 # Data processed
-preprocessing/namadataset_preprocessing/
+# preprocessing/namadataset_preprocessing/
 
 # IDE
 .idea/
